@@ -1,0 +1,16 @@
+{
+  "siteId": "expand-testing",
+  "productTypeCorrect": true,
+  "recognizedCoreFlows": [
+    "browse practice examples",
+    "open a test scenario",
+    "practice login or form interactions"
+  ],
+  "expectedCoreFlows": [
+    "browse practice examples",
+    "open a test scenario",
+    "practice login or form interactions"
+  ],
+  "coreFlowAccuracy": 1,
+  "reviewerNotes": "3/3 expected flows recognized; login and registration pages were explored directly."
+}

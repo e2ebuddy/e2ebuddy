@@ -1,0 +1,77 @@
+{
+  "productType": "自动化测试练习网站",
+  "summary": "这是一个用于自动化工程师练习的电子商务模拟网站，提供产品浏览、购物车、用户注册登录、联系表单等功能。网站明确标注其目的是供QA工程师进行自动化练习和API测试。",
+  "primaryLanguage": "en",
+  "pages": [
+    {
+      "url": "https://www.automationexercise.com/",
+      "title": "Automation Exercise",
+      "purpose": "首页，展示网站介绍、主要功能入口和推荐商品"
+    },
+    {
+      "url": "https://www.automationexercise.com/products",
+      "title": "Automation Exercise - All Products",
+      "purpose": "产品列表页，展示所有商品并提供搜索和筛选功能"
+    },
+    {
+      "url": "https://www.automationexercise.com/view_cart",
+      "title": "Automation Exercise - Checkout",
+      "purpose": "购物车页面，显示购物车内容（当前为空）"
+    },
+    {
+      "url": "https://www.automationexercise.com/login",
+      "title": "Automation Exercise - Signup / Login",
+      "purpose": "用户登录/注册页面"
+    },
+    {
+      "url": "https://www.automationexercise.com/contact_us",
+      "title": "Automation Exercise - Contact Us",
+      "purpose": "联系页面，包含联系表单和反馈信息"
+    }
+  ],
+  "coreFlows": [
+    {
+      "name": "浏览产品",
+      "steps": [
+        "打开产品页面",
+        "查看产品列表",
+        "可使用搜索功能筛选产品"
+      ],
+      "importance": "critical"
+    },
+    {
+      "name": "用户注册与登录",
+      "steps": [
+        "访问登录/注册页面",
+        "填写信息进行新用户注册",
+        "使用已有账号登录"
+      ],
+      "importance": "important"
+    },
+    {
+      "name": "联系网站",
+      "steps": [
+        "访问联系页面",
+        "填写姓名、邮箱、主题和消息",
+        "提交联系表单"
+      ],
+      "importance": "nice-to-have"
+    },
+    {
+      "name": "购物车操作",
+      "steps": [
+        "访问购物车页面",
+        "查看购物车内容（当前为空时提示去购物）"
+      ],
+      "importance": "important"
+    }
+  ],
+  "observations": [
+    "该网站明确声明是为自动化工程师提供的练习网站，用于刷自动化技能。",
+    "网站包含完整的电子商务功能模块，如产品列表、购物车、用户系统、联系表单。",
+    "联系页面注明其表单是用于测试目的。",
+    "网站导航栏包含“测试用例”和“API测试”等专门面向测试人员的链接。",
+    "产品页面包含按品牌和类别筛选的功能，以及一个搜索框。",
+    "购物车页面在商品为空时会引导用户去购买产品。"
+  ]
+}

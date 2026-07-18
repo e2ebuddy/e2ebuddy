@@ -1,0 +1,16 @@
+node_modules/
+.turbo/
+dist/
+.next/
+coverage/
+.env
+.env.local
+.claude/settings.local.json
+.DS_Store
+*.log
+*.tsbuildinfo
+playwright-report/
+test-results/
+artifacts/
+storage/
+e2ebuddy-output/

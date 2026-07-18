@@ -1,0 +1,16 @@
+{
+  "siteId": "playwright-todomvc",
+  "productTypeCorrect": true,
+  "recognizedCoreFlows": [
+    "create a todo",
+    "complete a todo",
+    "filter todos"
+  ],
+  "expectedCoreFlows": [
+    "create a todo",
+    "complete a todo",
+    "filter todos"
+  ],
+  "coreFlowAccuracy": 1,
+  "reviewerNotes": "3/3 expected flows recognized after prompt tuning; delete flow was also identified."
+}

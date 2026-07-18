@@ -1,0 +1,39 @@
+{
+  "name": "e2ebuddy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI-powered acceptance testing for vibe-coded products",
+  "license": "UNLICENSED",
+  "type": "module",
+  "bin": {
+    "e2ebuddy": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.112.3",
+    "playwright": "1.61.1"
+  },
+  "devDependencies": {
+    "brain": "workspace:*",
+    "executor": "workspace:*",
+    "shared": "workspace:*",
+    "storage": "workspace:*",
+    "tsup": "8.5.1"
+  },
+  "scripts": {
+    "build": "tsup",
+    "cli": "turbo run build --filter=e2ebuddy... && node dist/cli.js",
+    "lint": "eslint src --max-warnings=0",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

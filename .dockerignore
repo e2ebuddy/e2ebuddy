@@ -1,0 +1,7 @@
+**/node_modules
+**/dist
+**/.next
+.git
+.env
+storage
+e2ebuddy-output

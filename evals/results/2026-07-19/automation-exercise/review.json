@@ -1,0 +1,18 @@
+{
+  "siteId": "automation-exercise",
+  "productTypeCorrect": true,
+  "recognizedCoreFlows": [
+    "browse products",
+    "search products",
+    "sign up or log in",
+    "manage cart"
+  ],
+  "expectedCoreFlows": [
+    "browse products",
+    "search products",
+    "sign up or log in",
+    "manage cart"
+  ],
+  "coreFlowAccuracy": 1,
+  "reviewerNotes": "4/4 expected flows recognized. Search was included within the browse-products flow."
+}

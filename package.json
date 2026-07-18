@@ -1,0 +1,32 @@
+{
+  "name": "e2ebuddy-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.8.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "cli": "pnpm -F e2ebuddy cli",
+    "eval:explore": "node scripts/evaluate-explore.mjs",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.20.0",
+    "@types/node": "22.13.4",
+    "eslint": "9.20.1",
+    "turbo": "2.4.2",
+    "typescript": "5.7.3",
+    "typescript-eslint": "8.24.0",
+    "vitest": "3.0.5"
+  },
+  "license": "UNLICENSED",
+  "description": "<div align=\"center\">",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "type": "commonjs"
+}

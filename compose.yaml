@@ -1,0 +1,96 @@
+name: e2ebuddy
+
+x-app-environment: &app-environment
+  DATABASE_URL: postgresql://postgres:postgres@postgres:5432/e2ebuddy
+  REDIS_URL: redis://redis:6379
+  AI_PROVIDER: ${AI_PROVIDER:-openai-compatible}
+  AI_API_KEY: ${AI_API_KEY:-}
+  AI_BASE_URL: ${AI_BASE_URL:-https://token-plan-cn.xiaomimimo.com/v1}
+  AI_AGENT_MODEL: ${AI_AGENT_MODEL:-mimo-v2.5-pro}
+  AI_VISION_MODEL: ${AI_VISION_MODEL:-mimo-v2.5}
+  AI_REPORT_MODEL: ${AI_REPORT_MODEL:-mimo-v2.5}
+  AI_THINKING: ${AI_THINKING:-disabled}
+  CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY:?set CREDENTIALS_ENCRYPTION_KEY in .env}
+  STORAGE_DRIVER: s3
+  S3_ENDPOINT: http://minio:9000
+  S3_REGION: us-east-1
+  S3_BUCKET: e2ebuddy
+  S3_ACCESS_KEY_ID: minioadmin
+  S3_SECRET_ACCESS_KEY: minioadmin
+  S3_FORCE_PATH_STYLE: "true"
+
+services:
+  postgres:
+    image: postgres:17.10-alpine3.23
+    environment:
+      POSTGRES_DB: e2ebuddy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U postgres -d e2ebuddy]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8.8.0-alpine3.23
+    command: [redis-server, --save, "60", "1", --appendonly, "yes"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports: ["9001:9001"]
+    volumes: [minio-data:/data]
+    healthcheck:
+      test: [CMD, curl, -f, http://localhost:9000/minio/health/live]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-07-21T05-28-08Z
+    depends_on:
+      minio: { condition: service_healthy }
+    entrypoint: [/bin/sh, -c]
+    command: ["mc alias set local http://minio:9000 minioadmin minioadmin && mc mb --ignore-existing local/e2ebuddy"]
+
+  migrate:
+    build: { context: ., dockerfile: docker/worker.Dockerfile }
+    environment: *app-environment
+    command: [pnpm, -F, db, db:push]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  worker:
+    build: { context: ., dockerfile: docker/worker.Dockerfile }
+    environment: *app-environment
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+
+  web:
+    build: { context: ., dockerfile: docker/web.Dockerfile }
+    environment: *app-environment
+    ports: ["3000:3000"]
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      minio-init: { condition: service_completed_successfully }
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

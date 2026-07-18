@@ -1,0 +1,63 @@
+{
+  "productType": "任务管理演示应用",
+  "summary": "这是一个基于React的TodoMVC演示应用，用于展示待办事项管理的基本功能。用户可以通过该应用添加、标记完成、过滤和删除待办事项，所有操作都在单页面中完成。",
+  "primaryLanguage": "en",
+  "pages": [
+    {
+      "url": "https://demo.playwright.dev/todomvc/#/",
+      "title": "React • TodoMVC",
+      "purpose": "待办事项管理应用的主界面，支持添加、查看、过滤和删除待办事项"
+    },
+    {
+      "url": "https://demo.playwright.dev/todomvc/#/active",
+      "title": "React • TodoMVC",
+      "purpose": "显示未完成的待办事项"
+    },
+    {
+      "url": "https://demo.playwright.dev/todomvc/#/completed",
+      "title": "React • TodoMVC",
+      "purpose": "显示已完成的待办事项"
+    }
+  ],
+  "coreFlows": [
+    {
+      "name": "添加待办事项",
+      "steps": [
+        "在输入框中输入待办事项内容",
+        "按回车键提交"
+      ],
+      "importance": "critical"
+    },
+    {
+      "name": "过滤待办事项视图",
+      "steps": [
+        "点击“All”链接显示所有事项",
+        "点击“Active”链接显示未完成事项",
+        "点击“Completed”链接显示已完成事项"
+      ],
+      "importance": "critical"
+    },
+    {
+      "name": "标记待办事项为完成",
+      "steps": [
+        "点击待办事项前的复选框标记为完成"
+      ],
+      "importance": "important"
+    },
+    {
+      "name": "删除待办事项",
+      "steps": [
+        "将鼠标悬停在待办事项上",
+        "点击出现的删除按钮"
+      ],
+      "importance": "important"
+    }
+  ],
+  "observations": [
+    "应用是一个用于测试的TodoMVC演示版本，而非正式应用。",
+    "应用使用React框架构建，所有功能在单页面中实现。",
+    "界面包含添加待办事项的输入框、待办事项列表和过滤视图的链接。",
+    "待办事项可以标记为完成，也可以通过悬停显示删除按钮来删除。",
+    "页面底部显示待办事项数量统计和创建者信息。"
+  ]
+}

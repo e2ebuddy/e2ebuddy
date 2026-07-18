@@ -1,0 +1,37 @@
+{
+  "fixture": "apps/fixture/golden-manifest.json",
+  "evaluatedAt": "2026-07-19",
+  "modelConfiguration": {
+    "agent": "mimo-v2.5-pro",
+    "vision": "mimo-v2.5",
+    "report": "mimo-v2.5"
+  },
+  "runs": [
+    {
+      "runId": "r6850e6a0c86ec96390c4ccb2a467a037",
+      "detectedGoldenDefects": 5,
+      "falsePositives": 0,
+      "additionalRealDefects": ["todo-placeholder"]
+    },
+    {
+      "runId": "rbd0de5f3b1853bc4b3e21ed0137a252c",
+      "detectedGoldenDefects": 5,
+      "falsePositives": 1,
+      "additionalRealDefects": ["todo-placeholder"]
+    },
+    {
+      "runId": "r2db187d8ca5e7efbf6f06d91978f55bd",
+      "detectedGoldenDefects": 4,
+      "falsePositives": 0,
+      "additionalRealDefects": ["todo-placeholder"]
+    }
+  ],
+  "averageDetectedGoldenDefects": 4.67,
+  "maximumFalsePositivesInAnyRun": 1,
+  "acceptance": {
+    "minimumAverageDetected": 4,
+    "maximumFalsePositivesPerRun": 1,
+    "passed": true
+  },
+  "notes": "TODO placeholder is present in the fixture but is not one of the five golden defects, so it is recorded as an additional real defect rather than a false positive. The only false positive was a pricing-anchor scroll finding in the second run."
+}

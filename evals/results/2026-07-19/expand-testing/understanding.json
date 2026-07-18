@@ -1,0 +1,63 @@
+{
+  "productType": "自动化测试练习平台",
+  "summary": "该网站为QA和开发者提供免费的自动化测试练习环境，包含多种Web UI和REST API示例。用户可以访问不同的示例页面来练习使用Selenium、Playwright、Cypress等工具进行测试。",
+  "primaryLanguage": "en",
+  "pages": [
+    {
+      "url": "https://practice.expandtesting.com/",
+      "title": "Automation Testing Practice Website for QA and Developers | UI and API",
+      "purpose": "作为主页，展示平台概览，提供导航到各个示例和资源的入口。"
+    },
+    {
+      "url": "https://practice.expandtesting.com/inputs",
+      "title": "Web inputs page for Automation Testing Practice",
+      "purpose": "提供一个用于练习测试各种网页输入字段（如数字、文本、密码、日期）的页面。"
+    },
+    {
+      "url": "https://practice.expandtesting.com/login",
+      "title": "Test Login Page for Automation Testing Practice",
+      "purpose": "提供一个用于练习测试登录功能的页面，包含正向和负向场景。"
+    },
+    {
+      "url": "https://practice.expandtesting.com/register",
+      "title": "Test Register Page for Automation Testing Practice",
+      "purpose": "提供一个用于练习测试注册功能的页面，包含正向和负向场景。"
+    }
+  ],
+  "coreFlows": [
+    {
+      "name": "浏览和访问测试示例",
+      "steps": [
+        "在主页上浏览列出的示例应用",
+        "点击示例链接（如Web inputs、Test Login Page）进入具体练习页面",
+        "在具体页面上进行交互和测试"
+      ],
+      "importance": "critical"
+    },
+    {
+      "name": "练习登录/注册表单验证",
+      "steps": [
+        "导航到登录页面",
+        "输入用户名和密码并提交",
+        "观察错误提示或成功登录",
+        "（可选）导航到注册页面并测试注册流程"
+      ],
+      "importance": "critical"
+    },
+    {
+      "name": "使用搜索功能查找示例",
+      "steps": [
+        "在主页的搜索框中输入关键词",
+        "点击搜索按钮",
+        "从搜索结果中选择一个示例"
+      ],
+      "importance": "important"
+    }
+  ],
+  "observations": [
+    "网站包含一个导航栏，提供了指向Demos（下拉菜单包含Examples、Apps、APIs、Assertions、Reports）、Tools、Tips、Test Cases、API Testing和About的链接。",
+    "在登录页面，尝试提交一个无效的用户名会触发一个显示“Your username is invalid!”的警报。",
+    "主页展示了一个示例应用列表，包括E-commerce BookStore、Notes React App、Notes Rest Api等。",
+    "该平台旨在为自动化测试工具（如Selenium, Playwright, Cypress, WebdriverIO, Postman）提供练习场景。"
+  ]
+}

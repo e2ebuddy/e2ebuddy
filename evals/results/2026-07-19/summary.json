@@ -1,0 +1,10 @@
+{
+  "reviewDate": "2026-07-19",
+  "sitesReviewed": 3,
+  "productTypeAccuracy": 1,
+  "expectedCoreFlows": 10,
+  "recognizedCoreFlows": 10,
+  "coreFlowAccuracy": 1,
+  "acceptanceThreshold": 0.8,
+  "passed": true
+}

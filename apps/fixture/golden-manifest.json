@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "brief": "The storefront must let users start selling and export campaign results as CSV.",
+  "defects": [
+    { "id": "dead-start-button", "layer": "flow", "severity": "major" },
+    { "id": "lorem-placeholder", "layer": "content", "severity": "major" },
+    { "id": "mobile-horizontal-overflow", "layer": "visual", "severity": "major" },
+    { "id": "incorrect-price-total", "layer": "content", "severity": "major" },
+    { "id": "missing-csv-export", "layer": "missing-feature", "severity": "major" }
+  ],
+  "acceptance": { "runs": 3, "minimumAverageDetected": 4, "maximumFalsePositivesPerRun": 1 }
+}
