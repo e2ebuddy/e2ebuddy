@@ -9,6 +9,7 @@
   "scripts": {
     "build": "turbo run build",
     "cli": "pnpm -F e2ebuddy cli",
+    "demo": "pnpm -F fixture build && pnpm -F fixture start",
     "eval:explore": "node scripts/evaluate-explore.mjs",
     "lint": "turbo run lint",
     "test": "turbo run test",
@@ -28,5 +29,9 @@
   "main": "index.js",
   "keywords": [],
   "author": "",
-  "type": "commonjs"
+  "type": "commonjs",
+  "repository": {
+    "type": "git",
+    "url": "git@github-e2ebuddy:e2ebuddy/e2ebuddy.git"
+  }
 }

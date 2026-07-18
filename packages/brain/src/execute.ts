@@ -50,7 +50,11 @@ export async function executePlan(
   for (const testCase of input.plan.cases) {
     const session = await dependencies.createSession(testCase);
     try {
-      if (credentials !== undefined && session.trustedLogin !== undefined) {
+      if (
+        credentials !== undefined
+        && session.trustedLogin !== undefined
+        && shouldUseTrustedLogin(testCase)
+      ) {
         const login = await session.trustedLogin(credentials);
         if (!login.success) {
           loops[testCase.id] = { termination: 'blocked', reason: login.note };
@@ -85,6 +89,21 @@ export async function executePlan(
         timeoutMs: 180_000,
       });
       loops[testCase.id] = loop;
+      const initialScreenshotKey = await storeScreenshot(
+        dependencies.storage,
+        input.runId,
+        loop.initialPerception.screenshotBase64,
+      );
+      steps.push({
+        caseId: testCase.id,
+        stepIndex: 0,
+        action: { type: 'done', reason: 'Initial state captured before case actions.' },
+        screenshotKey: initialScreenshotKey,
+        a11ySnippet: loop.initialPerception.a11yTree,
+        urlAfter: loop.initialPerception.url,
+        outcome: 'ok',
+        note: 'Before-action evidence.',
+      });
       for (const [index, step] of loop.steps.entries()) {
         const screenshotKey = await storeScreenshot(
           dependencies.storage,
@@ -93,7 +112,7 @@ export async function executePlan(
         );
         steps.push({
           caseId: testCase.id,
-          stepIndex: index,
+          stepIndex: index + 1,
           action: step.action,
           screenshotKey,
           a11ySnippet: step.a11ySnippet,
@@ -116,6 +135,12 @@ export async function executePlan(
   }
 
   return { evidence: EvidencePackSchema.parse({ steps, videoKeys }), loops };
+}
+
+export function shouldUseTrustedLogin(testCase: TestCase): boolean {
+  if (testCase.layer === 'flow') return true;
+  const intent = `${testCase.title} ${testCase.steps.join(' ')} ${testCase.expected}`;
+  return !/login page|sign[ -]?in page|login form|登录页|登录表单/i.test(intent);
 }
 
 async function storeScreenshot(

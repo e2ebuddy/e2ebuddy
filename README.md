@@ -28,7 +28,7 @@ e2ebuddy is a zero-configuration acceptance-testing platform for vibe coders. Gi
 
 ### Project status
 
-The M0–M6 implementation is complete: browser execution, the five-stage AI pipeline, full CLI, deterministic defect fixture, Postgres/Redis/S3 platform, web report experience, Docker Compose, rate limiting, and cost telemetry. The three-site live-model exploration evaluation reached 100%; three fixture acceptance runs averaged 4.67/5 golden defects with at most one false positive per run. Build, strict type checking, linting, and all 40 automated tests pass. External validation remains: Docker end-to-end validation on a running daemon, the 10-user beta, and the manual npm publish. The target npm package is `e2ebuddy` and remains private until release approval.
+The M0–M6 implementation is complete: browser execution, the five-stage AI pipeline, full CLI, deterministic defect fixture, Postgres/Redis/S3 platform, web report experience, Docker Compose, rate limiting, and cost telemetry. The three-site live-model exploration evaluation reached 100%; three fixture acceptance runs averaged 4.67/5 golden defects with at most one false positive per run. Build, strict type checking, linting, and all 43 automated tests pass. External validation remains: Docker end-to-end validation on a running daemon, the 10-user beta, and the manual npm publish. The target npm package is `e2ebuddy` and remains private until release approval.
 
 ### Architecture
 
@@ -89,6 +89,25 @@ pnpm -F e2ebuddy cli executor-demo https://example.com
 ```
 
 The command prints the action result and screenshot artifact key. A blocked result is expected when the selected element would navigate off-origin or trigger another unsafe action.
+
+Run the bundled login demo in one terminal:
+
+```bash
+pnpm demo
+```
+
+Open `http://127.0.0.1:4173/demo/login`, or test it from a second terminal with the documented fake account:
+
+```bash
+set -a
+source .env
+set +a
+E2EBUDDY_ALLOW_PRIVATE_TARGETS=true \
+E2EBUDDY_TEST_USERNAME=demo@e2ebuddy.dev \
+E2EBUDDY_TEST_PASSWORD='DemoPass123!' \
+pnpm -F e2ebuddy cli test http://127.0.0.1:4173/demo/login \
+  --brief "Users can sign in, view the dashboard, create a test run, and log out."
+```
 
 Run a complete acceptance test. Put the real key in the git-ignored `.env`; never place it in the command line or commit it:
 
@@ -207,7 +226,7 @@ e2ebuddy 是一个面向 vibe coder 的零配置验收测试平台。提交一�
 
 ### 当前状态
 
-M0–M6 的代码实现已经完成：包括浏览器执行器、五阶段 AI 管道、完整 CLI、固定缺陷站、Postgres/Redis/S3 平台、Web 报告页、Docker Compose、限流与成本埋点。三站真实模型探索评测达到 100%，固定缺陷站三次验收平均检出 4.67/5、每次误报不超过 1。构建、类型检查、Lint 和 40 个自动化测试全部通过。仍需外部环境完成 Docker daemon 端到端验收、10 人内测和人工 npm 发布。npm 目标包名为 `e2ebuddy`，发布前继续保持 private。
+M0–M6 的代码实现已经完成：包括浏览器执行器、五阶段 AI 管道、完整 CLI、固定缺陷站、Postgres/Redis/S3 平台、Web 报告页、Docker Compose、限流与成本埋点。三站真实模型探索评测达到 100%，固定缺陷站三次验收平均检出 4.67/5、每次误报不超过 1。构建、类型检查、Lint 和 43 个自动化测试全部通过。仍需外部环境完成 Docker daemon 端到端验收、10 人内测和人工 npm 发布。npm 目标包名为 `e2ebuddy`，发布前继续保持 private。
 
 ### 架构
 
@@ -268,6 +287,25 @@ pnpm -F e2ebuddy cli executor-demo https://example.com
 ```
 
 命令会输出动作结果与 screenshot artifact key。跨域、支付、下载等危险动作被拦截属于正常结果。
+
+在一个终端启动内置登录演示站：
+
+```bash
+pnpm demo
+```
+
+浏览器打开 `http://127.0.0.1:4173/demo/login`，或在第二个终端使用公开的假账号直接测试：
+
+```bash
+set -a
+source .env
+set +a
+E2EBUDDY_ALLOW_PRIVATE_TARGETS=true \
+E2EBUDDY_TEST_USERNAME=demo@e2ebuddy.dev \
+E2EBUDDY_TEST_PASSWORD='DemoPass123!' \
+pnpm -F e2ebuddy cli test http://127.0.0.1:4173/demo/login \
+  --brief "用户可以登录、查看仪表盘、创建测试任务并退出登录。"
+```
 
 运行完整验收。将真实 Key 写入已被 git 忽略的 `.env`，不要放进命令行或提交到仓库：
 

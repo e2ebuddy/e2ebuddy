@@ -17,6 +17,7 @@ import {
   executePlan,
   generatePlan,
   judgeRun,
+  shouldUseTrustedLogin,
   type AgentExecutor,
   type ModelClient,
   type ModelRequest,
@@ -119,6 +120,24 @@ class StaticExecutor implements AgentExecutor {
 }
 
 describe('M3/M4 pipeline', () => {
+  it('keeps login-page inspections unauthenticated while authenticating dashboard cases', () => {
+    expect(shouldUseTrustedLogin({
+      id: 'visual-login',
+      layer: 'visual',
+      title: 'Login page on mobile',
+      steps: ['Open the login page'],
+      expected: 'Login form is visible without clipping',
+      viewport: 'mobile',
+    })).toBe(false);
+    expect(shouldUseTrustedLogin({
+      id: 'content-dashboard',
+      layer: 'content',
+      title: 'Dashboard statistics',
+      steps: ['Log in to the dashboard', 'Inspect totals'],
+      expected: 'Dashboard totals are consistent',
+    })).toBe(true);
+  });
+
   it('deduplicates repeated root causes while preserving distinct placeholder defects', () => {
     const base: Issue = {
       id: 'arithmetic-1',
@@ -163,6 +182,23 @@ describe('M3/M4 pipeline', () => {
     expect(model.requests).toHaveLength(2);
   });
 
+  it('moves requirements mapped to the wrong layer into untested requirements', async () => {
+    const wronglyMapped: TestPlan = {
+      ...plan,
+      cases: plan.cases.map((testCase) => testCase.id === 'flow-add'
+        ? { ...testCase, sourceRequirements: [] }
+        : testCase.id === 'content-home'
+          ? { ...testCase, sourceRequirements: ['Users can add tasks'] }
+          : testCase),
+    };
+    const model = new QueueModel([JSON.stringify(wronglyMapped)]);
+    const normalized = await generatePlan(understanding, { client: model, model: 'test' });
+
+    expect(normalized.untestedRequirements).toEqual(['Users can add tasks']);
+    expect(normalized.cases.flatMap((testCase) => testCase.sourceRequirements ?? [])).toEqual([]);
+    expect(model.requests).toHaveLength(1);
+  });
+
   it('executes isolated cases, stores evidence, judges, and composes deterministic score', async () => {
     const storage = new MemoryStorage();
     const executeModel = new QueueModel(
@@ -182,7 +218,11 @@ describe('M3/M4 pipeline', () => {
       },
     );
     expect(sessions).toBe(4);
-    expect(execution.evidence.steps).toHaveLength(4);
+    expect(execution.evidence.steps).toHaveLength(8);
+    expect(execution.evidence.steps[0]).toMatchObject({
+      stepIndex: 0,
+      note: 'Before-action evidence.',
+    });
 
     const issueKey = execution.evidence.steps[0]?.screenshotKey;
     expect(issueKey).toBeDefined();

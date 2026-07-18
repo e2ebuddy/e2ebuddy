@@ -80,7 +80,7 @@ export function validateTestPlanCoverage(
   return errors;
 }
 
-function requirementLayer(requirement: string): 'flow' | 'content' | 'visual' {
+export function requirementLayer(requirement: string): 'flow' | 'content' | 'visual' {
   const normalized = requirement.toLowerCase();
   if (/layout|responsive|viewport|spacing|color|font|visual|布局|响应式|间距|颜色|字体|视觉/.test(normalized)) {
     return 'visual';
