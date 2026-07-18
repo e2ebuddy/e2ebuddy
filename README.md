@@ -5,9 +5,188 @@
 **AI 造的产品，AI 来验收。**<br>
 **Products built by AI, tested by AI.**
 
-[简体中文](#简体中文) · [English](#english) · [实施规格](./E2EBUDDY_SPEC.md)
+[English](#english) · [简体中文](#简体中文) · [实施规格](./E2EBUDDY_SPEC.md)
 
 </div>
+
+---
+
+<a id="english"></a>
+
+## English
+
+e2ebuddy is a zero-configuration acceptance-testing platform for vibe coders. Give it a deployed website URL and, optionally, the original product brief and test credentials. An AI agent understands the product, plans and executes tests, and produces an evidence-backed report with prompts that can be pasted directly into an AI coding tool.
+
+### Key capabilities
+
+- Zero configuration: no test scripts, SDK, or CI integration required
+- Three testing layers: functional flows, page content, and visual layout
+- Requirement matching: identifies features missing from the original brief
+- Evidence-driven results: captures step screenshots, accessibility trees, and videos
+- Repair loop: creates an actionable fix prompt for every confirmed issue
+- Low false-positive bias: uncertain findings are separated for human review and do not reduce the health score
+
+### Project status
+
+The M0–M6 implementation is complete: browser execution, the five-stage AI pipeline, full CLI, deterministic defect fixture, Postgres/Redis/S3 platform, web report experience, Docker Compose, rate limiting, and cost telemetry. The three-site live-model exploration evaluation reached 100%; three fixture acceptance runs averaged 4.67/5 golden defects with at most one false positive per run. Build, strict type checking, linting, and all 40 automated tests pass. External validation remains: Docker end-to-end validation on a running daemon, the 10-user beta, and the manual npm publish. The target npm package is `e2ebuddy` and remains private until release approval.
+
+### Architecture
+
+```text
+apps/worker ─▶ packages/brain ─▶ packages/executor ─▶ packages/shared
+      │                                      ▲
+      ├────────▶ packages/db ────────────────┤
+      └────────▶ packages/storage ───────────┘
+
+apps/web ─────▶ packages/db / packages/storage / packages/shared
+```
+
+Main directories:
+
+```text
+apps/
+  web/        Web platform (M5)
+  worker/     BullMQ test worker (M5)
+  fixture/    Deterministic defect fixture and golden manifest
+packages/
+  shared/     Zod schemas, inferred types, and deterministic validators
+  executor/   Playwright perception and action executor (M1)
+  brain/      explore / plan / execute / judge / report (M2-M4)
+  cli/        Command-line entry point eventually published as e2ebuddy on npm
+  db/         Prisma client, TestRun repository, and credential encryption
+  storage/    Local and S3 StorageAdapter implementations
+```
+
+### Requirements
+
+- Node.js 20 or newer
+- pnpm 11.8.0
+- M0 requires no external services; the complete platform later requires Postgres, Redis, and S3-compatible storage
+
+### Quick start
+
+```bash
+corepack enable
+pnpm install
+pnpm -F executor exec playwright install chromium
+cp .env.example .env
+
+pnpm build
+pnpm lint
+pnpm test
+```
+
+Run only the shared contract tests:
+
+```bash
+pnpm -F shared test
+```
+
+Run the M1 executor demo:
+
+```bash
+pnpm -F e2ebuddy cli executor-demo https://example.com
+```
+
+The command prints the action result and screenshot artifact key. A blocked result is expected when the selected element would navigate off-origin or trigger another unsafe action.
+
+Run a complete acceptance test. Put the real key in the git-ignored `.env`; never place it in the command line or commit it:
+
+```bash
+AI_PROVIDER=openai-compatible
+AI_API_KEY=fill-this-locally
+AI_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
+AI_AGENT_MODEL=mimo-v2.5-pro
+AI_VISION_MODEL=mimo-v2.5
+AI_REPORT_MODEL=mimo-v2.5
+AI_THINKING=disabled
+```
+
+```bash
+set -a
+source .env
+set +a
+pnpm -F e2ebuddy cli explore https://example.com --brief "This is a course website"
+```
+
+```bash
+pnpm -F e2ebuddy cli test https://example.com --brief "This is a course website"
+```
+
+`explore` writes `understanding.json`. `test` writes understanding, plan, evidence, judgement, and report under `e2ebuddy-output/<runId>/`, with screenshots and videos stored through the configured StorageAdapter. Model metrics go to stderr without logging API keys or credentials.
+
+Run the authorized three-site exploration evaluation:
+
+```bash
+pnpm eval:explore
+```
+
+Start the complete local platform (requires a running Docker daemon and `.env`):
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:3000`; the MinIO Console is available at `http://localhost:9001`.
+
+Common commands:
+
+| Command | Purpose |
+|---|---|
+| `pnpm build` | Build the entire monorepo |
+| `pnpm lint` | Lint every workspace |
+| `pnpm test` | Run all tests |
+| `pnpm typecheck` | Run strict TypeScript checks |
+| `pnpm -F shared test` | Validate cross-package runtime contracts only |
+| `pnpm eval:explore` | Evaluate exploration on three automation-authorized demo sites |
+| `docker compose up --build` | Start Postgres, Redis, MinIO, worker, and web |
+
+### Environment variables
+
+Copy [.env.example](./.env.example) and fill in the required values. Never commit real API keys, test credentials, or encryption keys.
+
+| Category | Variables |
+|---|---|
+| AI (OpenAI-compatible by default) | `AI_PROVIDER`, `AI_API_KEY`, `AI_BASE_URL`, `AI_AGENT_MODEL`, `AI_VISION_MODEL`, `AI_REPORT_MODEL`, `AI_THINKING` |
+| Anthropic (optional compatibility) | `ANTHROPIC_API_KEY`, `ANTHROPIC_AGENT_MODEL`, `ANTHROPIC_REPORT_MODEL` |
+| Data | `DATABASE_URL`, `REDIS_URL` |
+| Storage | `STORAGE_DRIVER`, `STORAGE_DIR`, `S3_*` |
+| Security | `CREDENTIALS_ENCRYPTION_KEY` |
+| Limits | `RUN_TIMEOUT_MS`, `CASE_STEP_LIMIT` |
+| Rate limiting | `RUNS_PER_IP_PER_HOUR` |
+
+For local fixture acceptance only, temporarily set `E2EBUDDY_ALLOW_PRIVATE_TARGETS=true`. It affects the CLI only and restricts access to the initial URL's exact origin; never enable it in workers or production.
+
+`CREDENTIALS_ENCRYPTION_KEY` must contain 32 random bytes encoded as base64:
+
+```bash
+openssl rand -base64 32
+```
+
+### Publishing to npm
+
+Publishing is deliberately manual. After live-model, Docker, and beta-user acceptance, choose a project license, change `private` to `false` in `packages/cli/package.json`, then run:
+
+```bash
+npm login
+npm whoami
+pnpm build && pnpm test
+pnpm -F e2ebuddy pack --pack-destination ./release
+npm publish ./release/e2ebuddy-0.1.0.tgz --tag beta --access public
+```
+
+After beta validation, promote it with `npm dist-tag add e2ebuddy@0.1.0 latest`. Never publish automatically or commit an npm token.
+
+### Security principles
+
+e2ebuddy visits user-provided URLs, so every target page must be treated as untrusted input. The executor must defend against SSRF and private-network access, enforce same-origin navigation, resist prompt injection, encrypt and redact credentials, and block irreversible actions such as payments, deletion, publishing, and messaging. See [section 4.3 of the specification](./E2EBUDDY_SPEC.md#43-安全与边界) for the complete rules.
+
+### Development rules
+
+- Implement milestones in order and pass each milestone's acceptance criteria
+- Use only Zod schemas and inferred types exported by `packages/shared` for cross-package data
+- `brain` must not import Playwright directly; `web` must not call `brain` directly
+- Mark decisions outside the specification with `// SPEC-GAP:` and update the specification first
 
 ---
 
@@ -189,180 +368,3 @@ e2ebuddy 会访问用户提供的网址，因此执行器必须把目标页面�
 - 规格之外的实现决策使用 `// SPEC-GAP:` 标注，并先更新规格
 
 ---
-
-<a id="english"></a>
-
-## English
-
-e2ebuddy is a zero-configuration acceptance-testing platform for vibe coders. Give it a deployed website URL and, optionally, the original product brief and test credentials. An AI agent understands the product, plans and executes tests, and produces an evidence-backed report with prompts that can be pasted directly into an AI coding tool.
-
-### Key capabilities
-
-- Zero configuration: no test scripts, SDK, or CI integration required
-- Three testing layers: functional flows, page content, and visual layout
-- Requirement matching: identifies features missing from the original brief
-- Evidence-driven results: captures step screenshots, accessibility trees, and videos
-- Repair loop: creates an actionable fix prompt for every confirmed issue
-- Low false-positive bias: uncertain findings are separated for human review and do not reduce the health score
-
-### Project status
-
-The M0–M6 implementation is complete: browser execution, the five-stage AI pipeline, full CLI, deterministic defect fixture, Postgres/Redis/S3 platform, web report experience, Docker Compose, rate limiting, and cost telemetry. The three-site live-model exploration evaluation reached 100%; three fixture acceptance runs averaged 4.67/5 golden defects with at most one false positive per run. Build, strict type checking, linting, and all 40 automated tests pass. External validation remains: Docker end-to-end validation on a running daemon, the 10-user beta, and the manual npm publish. The target npm package is `e2ebuddy` and remains private until release approval.
-
-### Architecture
-
-```text
-apps/worker ─▶ packages/brain ─▶ packages/executor ─▶ packages/shared
-      │                                      ▲
-      ├────────▶ packages/db ────────────────┤
-      └────────▶ packages/storage ───────────┘
-
-apps/web ─────▶ packages/db / packages/storage / packages/shared
-```
-
-Main directories:
-
-```text
-apps/
-  web/        Web platform (M5)
-  worker/     BullMQ test worker (M5)
-  fixture/    Deterministic defect fixture and golden manifest
-packages/
-  shared/     Zod schemas, inferred types, and deterministic validators
-  executor/   Playwright perception and action executor (M1)
-  brain/      explore / plan / execute / judge / report (M2-M4)
-  cli/        Command-line entry point eventually published as e2ebuddy on npm
-  db/         Prisma client, TestRun repository, and credential encryption
-  storage/    Local and S3 StorageAdapter implementations
-```
-
-### Requirements
-
-- Node.js 20 or newer
-- pnpm 11.8.0
-- M0 requires no external services; the complete platform later requires Postgres, Redis, and S3-compatible storage
-
-### Quick start
-
-```bash
-corepack enable
-pnpm install
-pnpm -F executor exec playwright install chromium
-cp .env.example .env
-
-pnpm build
-pnpm lint
-pnpm test
-```
-
-Run only the shared contract tests:
-
-```bash
-pnpm -F shared test
-```
-
-Run the M1 executor demo:
-
-```bash
-pnpm -F e2ebuddy cli executor-demo https://example.com
-```
-
-The command prints the action result and screenshot artifact key. A blocked result is expected when the selected element would navigate off-origin or trigger another unsafe action.
-
-Run a complete acceptance test. Put the real key in the git-ignored `.env`; never place it in the command line or commit it:
-
-```bash
-AI_PROVIDER=openai-compatible
-AI_API_KEY=fill-this-locally
-AI_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
-AI_AGENT_MODEL=mimo-v2.5-pro
-AI_VISION_MODEL=mimo-v2.5
-AI_REPORT_MODEL=mimo-v2.5
-AI_THINKING=disabled
-```
-
-```bash
-set -a
-source .env
-set +a
-pnpm -F e2ebuddy cli explore https://example.com --brief "This is a course website"
-```
-
-```bash
-pnpm -F e2ebuddy cli test https://example.com --brief "This is a course website"
-```
-
-`explore` writes `understanding.json`. `test` writes understanding, plan, evidence, judgement, and report under `e2ebuddy-output/<runId>/`, with screenshots and videos stored through the configured StorageAdapter. Model metrics go to stderr without logging API keys or credentials.
-
-Run the authorized three-site exploration evaluation:
-
-```bash
-pnpm eval:explore
-```
-
-Start the complete local platform (requires a running Docker daemon and `.env`):
-
-```bash
-docker compose up --build
-```
-
-Open `http://localhost:3000`; the MinIO Console is available at `http://localhost:9001`.
-
-Common commands:
-
-| Command | Purpose |
-|---|---|
-| `pnpm build` | Build the entire monorepo |
-| `pnpm lint` | Lint every workspace |
-| `pnpm test` | Run all tests |
-| `pnpm typecheck` | Run strict TypeScript checks |
-| `pnpm -F shared test` | Validate cross-package runtime contracts only |
-| `pnpm eval:explore` | Evaluate exploration on three automation-authorized demo sites |
-| `docker compose up --build` | Start Postgres, Redis, MinIO, worker, and web |
-
-### Environment variables
-
-Copy [.env.example](./.env.example) and fill in the required values. Never commit real API keys, test credentials, or encryption keys.
-
-| Category | Variables |
-|---|---|
-| AI (OpenAI-compatible by default) | `AI_PROVIDER`, `AI_API_KEY`, `AI_BASE_URL`, `AI_AGENT_MODEL`, `AI_VISION_MODEL`, `AI_REPORT_MODEL`, `AI_THINKING` |
-| Anthropic (optional compatibility) | `ANTHROPIC_API_KEY`, `ANTHROPIC_AGENT_MODEL`, `ANTHROPIC_REPORT_MODEL` |
-| Data | `DATABASE_URL`, `REDIS_URL` |
-| Storage | `STORAGE_DRIVER`, `STORAGE_DIR`, `S3_*` |
-| Security | `CREDENTIALS_ENCRYPTION_KEY` |
-| Limits | `RUN_TIMEOUT_MS`, `CASE_STEP_LIMIT` |
-| Rate limiting | `RUNS_PER_IP_PER_HOUR` |
-
-For local fixture acceptance only, temporarily set `E2EBUDDY_ALLOW_PRIVATE_TARGETS=true`. It affects the CLI only and restricts access to the initial URL's exact origin; never enable it in workers or production.
-
-`CREDENTIALS_ENCRYPTION_KEY` must contain 32 random bytes encoded as base64:
-
-```bash
-openssl rand -base64 32
-```
-
-### Publishing to npm
-
-Publishing is deliberately manual. After live-model, Docker, and beta-user acceptance, choose a project license, change `private` to `false` in `packages/cli/package.json`, then run:
-
-```bash
-npm login
-npm whoami
-pnpm build && pnpm test
-pnpm -F e2ebuddy pack --pack-destination ./release
-npm publish ./release/e2ebuddy-0.1.0.tgz --tag beta --access public
-```
-
-After beta validation, promote it with `npm dist-tag add e2ebuddy@0.1.0 latest`. Never publish automatically or commit an npm token.
-
-### Security principles
-
-e2ebuddy visits user-provided URLs, so every target page must be treated as untrusted input. The executor must defend against SSRF and private-network access, enforce same-origin navigation, resist prompt injection, encrypt and redact credentials, and block irreversible actions such as payments, deletion, publishing, and messaging. See [section 4.3 of the specification](./E2EBUDDY_SPEC.md#43-安全与边界) for the complete rules.
-
-### Development rules
-
-- Implement milestones in order and pass each milestone's acceptance criteria
-- Use only Zod schemas and inferred types exported by `packages/shared` for cross-package data
-- `brain` must not import Playwright directly; `web` must not call `brain` directly
-- Mark decisions outside the specification with `// SPEC-GAP:` and update the specification first
