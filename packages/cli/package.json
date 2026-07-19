@@ -1,9 +1,9 @@
 {
   "name": "e2ebuddy",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "description": "AI-powered acceptance testing for vibe-coded products",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "e2ebuddy": "./dist/cli.js"
