@@ -27,6 +27,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     volumes: [postgres-data:/var/lib/postgresql/data]
+    networks: [backplane]
     healthcheck:
       test: [CMD-SHELL, pg_isready -U postgres -d e2ebuddy]
       interval: 5s
@@ -37,6 +38,7 @@ services:
     image: redis:8.8.0-alpine3.23
     command: [redis-server, --save, "60", "1", --appendonly, "yes"]
     volumes: [redis-data:/data]
+    networks: [backplane]
     healthcheck:
       test: [CMD, redis-cli, ping]
       interval: 5s
@@ -51,6 +53,7 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     ports: ["9001:9001"]
     volumes: [minio-data:/data]
+    networks: [backplane]
     healthcheck:
       test: [CMD, curl, -f, http://localhost:9000/minio/health/live]
       interval: 5s
@@ -59,6 +62,7 @@ services:
 
   minio-init:
     image: minio/mc:RELEASE.2025-07-21T05-28-08Z
+    networks: [backplane]
     depends_on:
       minio: { condition: service_healthy }
     entrypoint: [/bin/sh, -c]
@@ -66,15 +70,27 @@ services:
 
   migrate:
     build: { context: ., dockerfile: docker/worker.Dockerfile }
-    environment: *app-environment
+    # Reuses the worker image; it only reaches Postgres on the backplane, so the
+    # egress guard is not applicable (and it lacks NET_ADMIN by design).
+    environment:
+      <<: *app-environment
+      WORKER_EGRESS_FIREWALL: disabled
     command: [pnpm, -F, db, db:push]
+    networks: [backplane]
     depends_on:
       postgres: { condition: service_healthy }
 
   worker:
     build: { context: ., dockerfile: docker/worker.Dockerfile }
-    environment: *app-environment
+    # Network-layer egress guard: only NET_ADMIN is granted, and only inside this
+    # container's own netns. BACKPLANE_CIDR must match the backplane subnet below.
+    cap_add: [NET_ADMIN]
+    environment:
+      <<: *app-environment
+      WORKER_EGRESS_FIREWALL: ${WORKER_EGRESS_FIREWALL:-enforce}
+      BACKPLANE_CIDR: 10.31.7.0/24
     restart: unless-stopped
+    networks: [backplane, egress]
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
@@ -85,10 +101,24 @@ services:
     environment: *app-environment
     ports: ["3000:3000"]
     restart: unless-stopped
+    networks: [backplane, egress]
     depends_on:
       migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       minio-init: { condition: service_completed_successfully }
+
+networks:
+  # Internal service bus (Postgres/Redis/MinIO). Fixed subnet so the worker's
+  # egress guard can allow exactly these hosts while dropping all other private
+  # ranges. Keep this subnet in sync with worker.BACKPLANE_CIDR above.
+  backplane:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.31.7.0/24
+  # Outbound path to the public internet (target sites + AI API).
+  egress:
+    driver: bridge
 
 volumes:
   postgres-data:

@@ -35,15 +35,26 @@
 
 按以下顺序继续，不要把“代码已写完”当作“验收已完成”。
 
-- [ ] P0：同步已经过时的 README 发布状态。
-- [ ] P0：补齐生产 worker 的网络层出站防火墙方案与验证。
-- [ ] P0：启动 Docker daemon，完成 M5 全平台端到端验收。
-- [ ] P0：完成 worker 强杀、恢复和幂等性实测。
-- [ ] P1：邀请 10 名真实用户完成 M6 内测，记录误报率与 NPS。
-- [ ] P1：修复内测发现的问题并重跑全部质量门禁。
-- [ ] P1：在用户明确授权后发布 npm beta。
-- [ ] P1：完成 beta 验证后，在用户明确授权下提升 `latest`。
-- [ ] P2：更新本交接文档、README 和本机 spec 的最终状态。
+- [x] P0：同步已经过时的 README 发布状态。（2026-07-19 完成；npm 已发布后再次更新为 latest 0.1.0 / beta 0.1.1）
+- [x] P0：补齐生产 worker 的网络层出站防火墙方案与验证。（2026-07-19 实现并在 Docker 运行时验收 9/9 PASS）
+- [x] P0：启动 Docker daemon，完成 M5 全平台端到端验收。（2026-07-19 通过，见下方结果）
+- [x] P0：完成 worker 强杀、恢复和幂等性实测。（2026-07-19 通过，见下方结果）
+- [ ] P1：邀请 10 名真实用户完成 M6 内测，记录误报率与 NPS。（需真实用户，无法由 agent 独立完成）
+- [ ] P1：修复内测发现的问题并重跑全部质量门禁。（依赖上一项）
+- [x] P1：在用户明确授权后发布 npm beta。（用户已发布 beta 0.1.1）
+- [x] P1：完成 beta 验证后，在用户明确授权下提升 `latest`。（用户已设 latest 0.1.0）
+- [~] P2：更新本交接文档、README 和本机 spec 的最终状态。（README + 本文档已更新；本机 spec 待人工确认）
+
+### 2026-07-19 运行时验收结果（Docker daemon 已起）
+
+- **修复的真实缺陷（非规格任务，但阻塞 E2E）：**
+  - `docker/web.Dockerfile`：`pnpm -F web build` 未先构建 workspace 依赖，Turbopack 无法解析 `db/shared/storage`。改为 `pnpm exec turbo run build --filter=web...`，靠 `^build` 先编译依赖。
+  - `packages/executor/src/page-executor.ts`：hash 路由 SPA（如 TodoMVC）的 `window.location.hash` 为 `#/`，被当作 CSS selector 传给 `querySelector` 抛 SyntaxError 使整个 run 失败。改用 `getElementById`（不会因非法 selector 抛错）。
+  - `docker/worker.Dockerfile`：为 `apt-get install nftables` 增加重试，容忍上游镜像间歇性 502。
+- **§5 出站防火墙：** `./scripts/verify-egress.sh` 9/9 PASS（公网+AI 可达；元数据/loopback/RFC1918 网络层拦截；内部 backplane 服务可达）。`docker compose logs worker` 显示 `[egress-guard] enforced`。
+- **§6 M5 E2E（run `pzlzz6czh2rqcb8hgwudx276`，目标 TodoMVC）：** 阶段推进 exploring→planning→executing→judging→reporting→done；`/report/[id]` 200；报告含 healthScore 55 / verdict / 3 issues / coverage / 每条 issue fixPrompt + combinedFixPrompt；MinIO 有 32 个该 run 的 jpg/webm；artifact API 返回 200 image/jpeg 且不暴露本地路径；API 无 `credentialsCiphertext`/明文；终态 DB 记录 `credentialsCiphertext` 为空。
+- **§6 worker 强杀/恢复/幂等（run `lvugwjn45aqc324027p111gl`）：** planning 阶段 `docker compose stop worker`，此时 `understanding` 已持久化（md5 `dc3ab08c861628b602ee4e93ce9273d8`）、`plan`/`report` 为空；`start worker` 后 BullMQ 重投递，复用 understanding（md5 全程不变，已完成阶段未被重跑/覆盖），从 planning 继续推进到 executing→judging；全程该 run 行数恒为 1，`jobId=runId` 结构性去重，无重复业务任务。
+- **已知模型侧不确定性：** 部分 run 在 planning/report 阶段因模型输出未过自定义 schema 校验（"numeric consistency"）或 AI Provider 间歇 HTTP 500 而失败。这是 §7 内测要量化的完成率问题，非本次代码缺陷；happy-path run 已完整跑通。质量门禁（build/typecheck/lint/test）全绿。
 
 ## 4. P0：修正文档状态漂移
 
@@ -97,6 +108,19 @@ git diff --check
 - worker 无法访问 `127.0.0.1`、RFC1918、link-local 和云元数据 IP。
 - Redis/Postgres/MinIO 的必要内部访问正常。
 - 文档说明本地 Compose 与生产部署分别如何启用该保护。
+
+### 已实现（2026-07-19，运行时验收待 Docker）
+
+方案：worker 容器在**自身网络命名空间内**用 nftables 强制出站策略，零宿主网络风险。
+
+- `docker/worker-egress-entrypoint.sh`：`enforce`（默认，fail-closed）/`warn`/`disabled` 三种模式，安装 nft 策略后 `exec` worker。放行 `backplane` 子网与公网，丢弃 loopback/RFC1918/link-local/组播/保留/IPv6 本地和 `169.254.169.254`。
+- `docker/worker.Dockerfile`：安装 `nftables`，设置该脚本为 ENTRYPOINT。
+- `compose.yaml`：新增固定子网 `backplane`（`10.31.7.0/24`，内部服务）与 `egress`（公网）两张网络；worker 获 `cap_add: [NET_ADMIN]` + `WORKER_EGRESS_FIREWALL=enforce` + `BACKPLANE_CIDR`；`migrate` 复用同镜像但设 `WORKER_EGRESS_FIREWALL=disabled`。
+- `scripts/verify-egress.sh`：集成验证脚本（公网/AI 可达、元数据/loopback/RFC1918 被拦、内部服务可达）。
+- README（中英）新增“两层 SSRF 防护”小节，含本地 Compose、验证命令与托管平台替代方案。
+- 已过静态门禁：`bash -n` 两脚本、`docker compose config --quiet`、build/typecheck/lint/test。
+
+**仍需在 Docker daemon 起来后运行：** `docker compose up --build -d` 后执行 `./scripts/verify-egress.sh`，应全部 PASS；与 §6 的 M5 E2E 一并验收。若目标为 ECS/Fargate/Cloud Run 等无 NET_ADMIN 环境，改用平台级 egress policy 并设 `WORKER_EGRESS_FIREWALL=disabled`。
 
 ## 6. P0：M5 Docker 全平台验收
 

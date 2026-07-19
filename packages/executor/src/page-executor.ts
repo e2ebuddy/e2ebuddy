@@ -32,6 +32,11 @@ const viewportPresets = {
   mobile: { width: 375, height: 812 },
 } as const;
 
+function readPositiveIntEnv(name: string, fallback: number): number {
+  const parsed = Number(process.env[name]);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
 export interface PageExecutorOptions {
   targetUrl: string;
   browser?: Browser;
@@ -40,6 +45,7 @@ export interface PageExecutorOptions {
   caseStepLimit?: number;
   runTimeoutMs?: number;
   stabilityTimeoutMs?: number;
+  navigationTimeoutMs?: number;
   recordVideoDir?: string;
 }
 
@@ -59,6 +65,7 @@ export class PageExecutor {
   private readonly caseStepLimit: number;
   private readonly runTimeoutMs: number;
   private readonly stabilityTimeoutMs: number;
+  private readonly navigationTimeoutMs: number;
   private readonly startedAt = Date.now();
   private stepCount = 0;
   private lastPerception?: PagePerception;
@@ -82,6 +89,8 @@ export class PageExecutor {
     this.caseStepLimit = options.caseStepLimit ?? 25;
     this.runTimeoutMs = options.runTimeoutMs ?? 600_000;
     this.stabilityTimeoutMs = options.stabilityTimeoutMs ?? 8_000;
+    this.navigationTimeoutMs =
+      options.navigationTimeoutMs ?? readPositiveIntEnv('E2EBUDDY_NAV_TIMEOUT_MS', 60_000);
   }
 
   static async launch(options: PageExecutorOptions): Promise<PageExecutor> {
@@ -115,7 +124,13 @@ export class PageExecutor {
       );
       await executor.installNetworkPolicy();
       executor.installPageGuards();
-      await page.goto(target.href, { waitUntil: 'domcontentloaded' });
+      // Use 'commit' (fires once the navigation response is received) rather than
+      // 'domcontentloaded' so heavy, redirecting SPAs (e.g. auth-gated consoles) do
+      // not time out before the DOM parses; waitForStablePage() then settles content.
+      await page.goto(target.href, {
+        waitUntil: 'commit',
+        timeout: executor.navigationTimeoutMs,
+      });
       await executor.waitForStablePage();
       await executor.perceive();
       return executor;
@@ -142,9 +157,20 @@ export class PageExecutor {
       scrollX: window.scrollX,
       scrollY: window.scrollY,
       hashTarget: window.location.hash,
-      hashTargetTop: window.location.hash
-        ? document.querySelector(window.location.hash)?.getBoundingClientRect().top ?? null
-        : null,
+      // Resolve the hash to an element by id. getElementById never throws, unlike
+      // querySelector(hash), which raises a SyntaxError for client-side routes
+      // such as "#/" or "#/active" used by hash-routed SPAs (e.g. TodoMVC).
+      hashTargetTop: (() => {
+        const raw = window.location.hash.slice(1);
+        if (raw === '') return null;
+        let id = raw;
+        try {
+          id = decodeURIComponent(raw);
+        } catch {
+          /* keep the raw fragment if it is not valid percent-encoding */
+        }
+        return document.getElementById(id)?.getBoundingClientRect().top ?? null;
+      })(),
     }));
     const horizontalOverflow = Math.max(0, layout.documentWidth - layout.viewportWidth);
     const maxScrollY = Math.max(0, layout.documentHeight - layout.viewportHeight);
@@ -288,7 +314,10 @@ export class PageExecutor {
         if (!hasSameOrigin(url, this.targetOrigin)) {
           return `Cross-origin navigation was blocked: ${url.origin}`;
         }
-        await this.page.goto(url.href, { waitUntil: 'domcontentloaded' });
+        await this.page.goto(url.href, {
+          waitUntil: 'commit',
+          timeout: this.navigationTimeoutMs,
+        });
         return undefined;
       }
       case 'click': {

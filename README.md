@@ -28,7 +28,7 @@ e2ebuddy is a zero-configuration acceptance-testing platform for vibe coders. Gi
 
 ### Project status
 
-The M0–M6 implementation is complete: browser execution, the five-stage AI pipeline, full CLI, deterministic defect fixture, Postgres/Redis/S3 platform, web report experience, Docker Compose, rate limiting, and cost telemetry. The three-site live-model exploration evaluation reached 100%; three fixture acceptance runs averaged 4.67/5 golden defects with at most one false positive per run. Build, strict type checking, linting, and all 43 automated tests pass. External validation remains: Docker end-to-end validation on a running daemon, the 10-user beta, and the manual npm publish. The target npm package is `e2ebuddy` and remains private until release approval.
+The M0–M6 implementation is complete: browser execution, the five-stage AI pipeline, full CLI, deterministic defect fixture, Postgres/Redis/S3 platform, web report experience, Docker Compose, rate limiting, and cost telemetry. The three-site live-model exploration evaluation reached 100%; three fixture acceptance runs averaged 4.67/5 golden defects with at most one false positive per run. Build, strict type checking, linting, and all 43 automated tests pass. External validation remains: Docker end-to-end validation on a running daemon, the 10-user beta, and the manual npm publish. The npm package `e2ebuddy` (Apache-2.0, `private: false`) is published: the `latest` tag is `0.1.0` and the `beta` tag is `0.1.1`.
 
 ### Architecture
 
@@ -184,7 +184,7 @@ openssl rand -base64 32
 
 ### Publishing to npm
 
-Publishing is deliberately manual. After live-model, Docker, and beta-user acceptance, choose a project license, change `private` to `false` in `packages/cli/package.json`, then run:
+Publishing is deliberately manual. The package is already release-prepared: licensed under Apache-2.0 with `private: false` in `packages/cli/package.json`. After live-model, Docker, and beta-user acceptance, run:
 
 ```bash
 npm login
@@ -199,6 +199,23 @@ After beta validation, promote it with `npm dist-tag add e2ebuddy@0.1.0 latest`.
 ### Security principles
 
 e2ebuddy visits user-provided URLs, so every target page must be treated as untrusted input. The executor must defend against SSRF and private-network access, enforce same-origin navigation, resist prompt injection, encrypt and redact credentials, and block irreversible actions such as payments, deletion, publishing, and messaging. See [section 4.3 of the specification](./E2EBUDDY_SPEC.md#43-安全与边界) for the complete rules.
+
+#### Two layers of SSRF defense
+
+1. **Application layer** — `packages/executor/src/url-safety.ts` resolves each target host and rejects loopback, RFC1918, link-local, CGNAT, multicast, reserved, and IPv6-local addresses before any navigation.
+2. **Network layer (production worker)** — because DNS rebinding / TOCTOU means the packet that finally leaves the box can differ from what the app checked, the worker container also enforces a kernel-level egress policy as the last line of defense.
+
+**Local Compose.** `docker compose up` runs the worker with `cap_add: [NET_ADMIN]` and the `worker-egress-entrypoint.sh` script, which installs an nftables policy **inside the worker's own network namespace** (it can never affect the host or other containers). Internal services (Postgres/Redis/MinIO) sit on a fixed `backplane` subnet (`10.31.7.0/24`) that is explicitly allowed; the public internet is allowed; loopback, all other private ranges, link-local, multicast, and the cloud-metadata address `169.254.169.254` are dropped. The mode is controlled by `WORKER_EGRESS_FIREWALL` (`enforce` default, `warn`, or `disabled`) and it fails closed: in `enforce` mode the worker refuses to start if the policy cannot be installed.
+
+Verify it end-to-end after the stack is up:
+
+```bash
+./scripts/verify-egress.sh
+```
+
+It confirms the public internet and AI API are reachable, that metadata/loopback/RFC1918 targets are blocked at the network layer, and that the internal backplane services remain reachable.
+
+**Managed platforms.** Where containers cannot hold `NET_ADMIN` (e.g. ECS/Fargate, Cloud Run), do not rely on the in-container policy — set `WORKER_EGRESS_FIREWALL=disabled` and instead enforce the same deny-list with a platform egress control: a VPC egress firewall / security group / NAT policy that blocks the link-local metadata address and all private ranges, or a dedicated forward proxy the worker must route through. The application-layer guard stays on in every deployment.
 
 ### Development rules
 
@@ -226,7 +243,7 @@ e2ebuddy 是一个面向 vibe coder 的零配置验收测试平台。提交一�
 
 ### 当前状态
 
-M0–M6 的代码实现已经完成：包括浏览器执行器、五阶段 AI 管道、完整 CLI、固定缺陷站、Postgres/Redis/S3 平台、Web 报告页、Docker Compose、限流与成本埋点。三站真实模型探索评测达到 100%，固定缺陷站三次验收平均检出 4.67/5、每次误报不超过 1。构建、类型检查、Lint 和 43 个自动化测试全部通过。仍需外部环境完成 Docker daemon 端到端验收、10 人内测和人工 npm 发布。npm 目标包名为 `e2ebuddy`，发布前继续保持 private。
+M0–M6 的代码实现已经完成：包括浏览器执行器、五阶段 AI 管道、完整 CLI、固定缺陷站、Postgres/Redis/S3 平台、Web 报告页、Docker Compose、限流与成本埋点。三站真实模型探索评测达到 100%，固定缺陷站三次验收平均检出 4.67/5、每次误报不超过 1。构建、类型检查、Lint 和 43 个自动化测试全部通过。仍需外部环境完成 Docker daemon 端到端验收、10 人内测和人工 npm 发布。npm 包 `e2ebuddy`（Apache-2.0，`private: false`）已发布：`latest` 标签为 `0.1.0`，`beta` 标签为 `0.1.1`。
 
 ### 架构
 
@@ -382,7 +399,7 @@ openssl rand -base64 32
 
 ### 发布到 npm
 
-发布是人工操作。完成真实模型、Docker 和内测验收后：先为项目选择许可证，将 `packages/cli/package.json` 的 `private` 改为 `false`，再执行：
+发布是人工操作。包已完成发布准备：采用 Apache-2.0 许可证，`packages/cli/package.json` 中 `private` 已为 `false`。完成真实模型、Docker 和内测验收后执行：
 
 ```bash
 npm login
@@ -397,6 +414,23 @@ npm publish ./release/e2ebuddy-0.1.0.tgz --tag beta --access public
 ### 安全原则
 
 e2ebuddy 会访问用户提供的网址，因此执行器必须把目标页面视为不可信输入。实现必须包含 SSRF/私网地址拦截、同源导航限制、Prompt Injection 防护、凭证加密与脱敏，以及支付、删除、发布、发送等不可逆动作拦截。完整规则以 [规格书第 4.3 节](./E2EBUDDY_SPEC.md#43-安全与边界) 为准。
+
+#### 两层 SSRF 防护
+
+1. **应用层** —— `packages/executor/src/url-safety.ts` 会解析每个目标主机，在任何导航之前拒绝 loopback、RFC1918、link-local、CGNAT、组播、保留地址和 IPv6 本地地址。
+2. **网络层（生产 worker）** —— 由于 DNS rebinding / TOCTOU 会导致最终离开机器的数据包与应用层校验时不一致，worker 容器还在内核层强制执行出站策略，作为最终防线。
+
+**本地 Compose。** `docker compose up` 会以 `cap_add: [NET_ADMIN]` 启动 worker，并通过 `worker-egress-entrypoint.sh` 在 **worker 自己的网络命名空间内** 安装一套 nftables 策略（不会影响宿主机或其他容器）。内部服务（Postgres/Redis/MinIO）位于固定的 `backplane` 子网（`10.31.7.0/24`）并被显式放行；公网放行；loopback、其余全部私网段、link-local、组播以及云元数据地址 `169.254.169.254` 全部丢弃。模式由 `WORKER_EGRESS_FIREWALL` 控制（默认 `enforce`，另有 `warn`、`disabled`），并且 fail-closed：`enforce` 模式下若无法安装策略，worker 拒绝启动。
+
+在整套服务启动后端到端验证：
+
+```bash
+./scripts/verify-egress.sh
+```
+
+该脚本确认公网与 AI API 可达、元数据/loopback/RFC1918 目标在网络层被拦截，且内部 backplane 服务仍然可达。
+
+**托管平台。** 在容器无法持有 `NET_ADMIN` 的环境（如 ECS/Fargate、Cloud Run），不要依赖容器内策略 —— 设置 `WORKER_EGRESS_FIREWALL=disabled`，改用平台级出站控制执行相同的拒绝清单：用 VPC egress 防火墙/安全组/NAT 策略拦截 link-local 元数据地址和全部私网段，或让 worker 强制经由专用正向代理出站。应用层防护在任何部署下都保持开启。
 
 ### 开发约定
 
