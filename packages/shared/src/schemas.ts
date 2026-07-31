@@ -191,6 +191,39 @@ export const InteractableSchema = z
   })
   .strict();
 
+/** Optional geometry snapshot attached to perception (T08 hybrid evidence). */
+export const PerceptionGeometrySchema = z
+  .object({
+    viewportWidth: z.number().int().nonnegative(),
+    viewportHeight: z.number().int().nonnegative(),
+    documentWidth: z.number().int().nonnegative(),
+    documentHeight: z.number().int().nonnegative(),
+    scrollX: z.number(),
+    scrollY: z.number(),
+    horizontalOverflow: z.number().nonnegative().optional(),
+  })
+  .strict();
+
+export const ConsoleLogEntrySchema = z
+  .object({
+    type: z.string().max(64),
+    text: z.string().max(4_000),
+    timestamp: z.string().datetime({ offset: true }).optional(),
+  })
+  .strict();
+
+export const NetworkSummarySchema = z
+  .object({
+    requestCount: z.number().int().nonnegative(),
+    failedCount: z.number().int().nonnegative(),
+    sampleUrls: z.array(z.string().max(2_000)).max(20),
+  })
+  .strict();
+
+/**
+ * Page perception. Core fields remain required for backward compatibility;
+ * hybrid evidence fields are optional (T08).
+ */
 export const PagePerceptionSchema = z
   .object({
     url: HttpUrlSchema,
@@ -198,6 +231,15 @@ export const PagePerceptionSchema = z
     screenshotBase64: z.string().min(1),
     a11yTree: z.string().max(MAX_A11Y_LENGTH),
     interactables: z.array(InteractableSchema),
+    /** ISO timestamp when this perception was captured. */
+    capturedAt: z.string().datetime({ offset: true }).optional(),
+    /** Short DOM summary (tag counts / text excerpt), not full HTML. */
+    domSummary: z.string().max(8_000).optional(),
+    geometry: PerceptionGeometrySchema.optional(),
+    consoleLogs: z.array(ConsoleLogEntrySchema).max(50).optional(),
+    network: NetworkSummarySchema.optional(),
+    /** Optional artifact key when screenshot was also stored on disk. */
+    screenshotArtifactKey: ArtifactKeySchema.optional(),
   })
   .strict();
 
@@ -250,6 +292,11 @@ export const IssueSchema = z
     evidenceScreenshots: z.array(ArtifactKeySchema),
     pageUrl: HttpUrlSchema,
     fixPrompt: z.string().trim().min(1).max(20_000),
+    /** Optional structured expectation vs actual (T09 report UX). */
+    expected: z.string().trim().min(1).max(5_000).optional(),
+    actual: z.string().trim().min(1).max(5_000).optional(),
+    a11yEvidence: z.string().max(MAX_A11Y_LENGTH).optional(),
+    domEvidence: z.string().max(8_000).optional(),
   })
   .strict();
 

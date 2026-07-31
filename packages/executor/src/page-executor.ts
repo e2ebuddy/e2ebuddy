@@ -70,6 +70,10 @@ export class PageExecutor {
   private stepCount = 0;
   private lastPerception?: PagePerception;
   private transientBlockReason?: string;
+  private readonly consoleLogs: Array<{ type: string; text: string; timestamp: string }> = [];
+  private readonly networkSamples: string[] = [];
+  private networkRequestCount = 0;
+  private networkFailedCount = 0;
 
   private constructor(
     page: Page,
@@ -124,6 +128,7 @@ export class PageExecutor {
       );
       await executor.installNetworkPolicy();
       executor.installPageGuards();
+      executor.installEvidenceCollectors();
       // Use 'commit' (fires once the navigation response is received) rather than
       // 'domcontentloaded' so heavy, redirecting SPAs (e.g. auth-gated consoles) do
       // not time out before the DOM parses; waitForStablePage() then settles content.
@@ -143,7 +148,7 @@ export class PageExecutor {
 
   async perceive(): Promise<PagePerception> {
     const interactables = await this.collectInteractables();
-    const screenshot = await this.page.screenshot({ type: 'jpeg', quality: 60, fullPage: false });
+    const screenshot = await this.captureScreenshot();
     const body = this.page.locator('body');
     const snapshot =
       (await body
@@ -171,10 +176,24 @@ export class PageExecutor {
         }
         return document.getElementById(id)?.getBoundingClientRect().top ?? null;
       })(),
+      bodyText: (document.body?.innerText ?? '').slice(0, 2_000),
+      elementCount: document.querySelectorAll('*').length,
+      formCount: document.querySelectorAll('form').length,
+      linkCount: document.querySelectorAll('a[href]').length,
+      buttonCount: document.querySelectorAll('button, [role="button"]').length,
+      inputCount: document.querySelectorAll('input, textarea, select').length,
     }));
     const horizontalOverflow = Math.max(0, layout.documentWidth - layout.viewportWidth);
     const maxScrollY = Math.max(0, layout.documentHeight - layout.viewportHeight);
     const a11yTree = `${snapshot}\n[layout] viewport=${layout.viewportWidth}x${layout.viewportHeight} document=${layout.documentWidth}x${layout.documentHeight} horizontalOverflow=${horizontalOverflow}px scroll=${layout.scrollX},${layout.scrollY} maxScrollY=${maxScrollY}px hashTarget=${JSON.stringify(layout.hashTarget)} hashTargetTop=${layout.hashTargetTop === null ? 'none' : `${Math.round(layout.hashTargetTop)}px`}`.slice(0, 8_000);
+    const domSummary = [
+      `elements=${layout.elementCount}`,
+      `forms=${layout.formCount}`,
+      `links=${layout.linkCount}`,
+      `buttons=${layout.buttonCount}`,
+      `inputs=${layout.inputCount}`,
+      `text=${JSON.stringify(layout.bodyText.slice(0, 500))}`,
+    ].join(' ');
 
     const perception = PagePerceptionSchema.parse({
       url: this.page.url(),
@@ -182,9 +201,112 @@ export class PageExecutor {
       screenshotBase64: screenshot.toString('base64'),
       a11yTree,
       interactables,
+      capturedAt: new Date().toISOString(),
+      domSummary: domSummary.slice(0, 8_000),
+      geometry: {
+        viewportWidth: layout.viewportWidth,
+        viewportHeight: layout.viewportHeight,
+        documentWidth: layout.documentWidth,
+        documentHeight: layout.documentHeight,
+        scrollX: layout.scrollX,
+        scrollY: layout.scrollY,
+        horizontalOverflow,
+      },
+      consoleLogs: this.consoleLogs.slice(-50),
+      network: {
+        requestCount: this.networkRequestCount,
+        failedCount: this.networkFailedCount,
+        sampleUrls: this.networkSamples.slice(-20),
+      },
     });
     this.lastPerception = perception;
     return perception;
+  }
+
+  /**
+   * Capture a viewport JPEG. Playwright waits for webfonts by default; SPAs with
+   * slow/blocked font CDNs can hang until timeout and fail the whole run.
+   * Fall back to a CDP capture that does not wait on document.fonts.
+   */
+  private async captureScreenshot(): Promise<Buffer> {
+    try {
+      return await this.page.screenshot({
+        type: 'jpeg',
+        quality: 60,
+        fullPage: false,
+        timeout: 8_000,
+        animations: 'disabled',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/timeout|fonts?/i.test(message)) throw error;
+      // Best-effort: stop waiting on fonts, then try again briefly.
+      await this.page
+        .evaluate(() => {
+          try {
+            // Resolve document.fonts so pending loads do not block forever.
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const fonts = (document as any).fonts;
+            if (fonts?.ready && typeof fonts.ready.then === 'function') {
+              // no-op race: we just continue regardless
+            }
+          } catch {
+            /* ignore */
+          }
+        })
+        .catch(() => undefined);
+      try {
+        return await this.page.screenshot({
+          type: 'jpeg',
+          quality: 60,
+          fullPage: false,
+          timeout: 3_000,
+          animations: 'disabled',
+        });
+      } catch {
+        // CDP path: does not wait for webfonts the same way.
+        const client = await this.page.context().newCDPSession(this.page);
+        try {
+          const result = (await client.send('Page.captureScreenshot', {
+            format: 'jpeg',
+            quality: 60,
+            fromSurface: true,
+          })) as { data: string };
+          return Buffer.from(result.data, 'base64');
+        } finally {
+          await client.detach().catch(() => undefined);
+        }
+      }
+    }
+  }
+
+  private installEvidenceCollectors(): void {
+    this.page.on('console', (message) => {
+      if (this.consoleLogs.length >= 50) this.consoleLogs.shift();
+      this.consoleLogs.push({
+        type: message.type(),
+        text: message.text().slice(0, 4_000),
+        timestamp: new Date().toISOString(),
+      });
+    });
+    this.page.on('pageerror', (error) => {
+      if (this.consoleLogs.length >= 50) this.consoleLogs.shift();
+      this.consoleLogs.push({
+        type: 'error',
+        text: error.message.slice(0, 4_000),
+        timestamp: new Date().toISOString(),
+      });
+    });
+    this.page.on('request', (request) => {
+      this.networkRequestCount += 1;
+      const url = request.url();
+      if (this.networkSamples.length < 20 && !url.startsWith('data:')) {
+        this.networkSamples.push(url.slice(0, 2_000));
+      }
+    });
+    this.page.on('requestfailed', () => {
+      this.networkFailedCount += 1;
+    });
   }
 
   async execute(input: AgentAction): Promise<ActionResult> {

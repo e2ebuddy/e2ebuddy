@@ -10,6 +10,7 @@
   },
   "files": [
     "dist",
+    "web",
     "README.md"
   ],
   "engines": {
@@ -21,7 +22,9 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.112.3",
-    "playwright": "1.61.1"
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "playwright": "1.61.1",
+    "zod": "3.25.76"
   },
   "devDependencies": {
     "brain": "workspace:*",
@@ -31,7 +34,7 @@
     "tsup": "8.5.1"
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node ./scripts/copy-web.mjs",
     "cli": "turbo run build --filter=e2ebuddy... && node dist/cli.js",
     "lint": "eslint src --max-warnings=0",
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>e2ebuddy</title>
+    <script>
+      // Apply theme before paint to avoid flash
+      try {
+        var t = localStorage.getItem('e2ebuddy.theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.classList.remove('light', 'dark');
+        document.documentElement.classList.add(t);
+        document.documentElement.dataset.theme = t;
+        var l = localStorage.getItem('e2ebuddy.locale');
+        document.documentElement.lang = l === 'en' ? 'en' : 'zh-CN';
+      } catch (e) {}
+    </script>
+  </head>
+  <body class="ui-surface min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

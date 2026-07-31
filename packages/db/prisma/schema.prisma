@@ -3,7 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  // Local-friendly file DB. No Postgres service required.
+  // Path is relative to this schema file (packages/db/prisma/).
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 

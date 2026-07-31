@@ -14,4 +14,15 @@ test-results/
 artifacts/
 storage/
 e2ebuddy-output/
+release/
+# SQLite database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+packages/db/data/
 E2EBUDDY_SPEC.md
+
+# Local web build artifacts (copied to packages/cli/web/ at build time)
+apps/local-web/dist/
+packages/cli/web/

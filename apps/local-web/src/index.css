@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+html.dark {
+  color-scheme: dark;
+  --bg: #020617;
+  --bg-elevated: #0f172a;
+  --bg-muted: #1e293b;
+  --border: #1e293b;
+  --border-strong: #334155;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-faint: #64748b;
+  --accent: #0ea5e9;
+  --accent-soft: rgba(14, 165, 233, 0.12);
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --danger: #fb7185;
+  --chip: #1e293b;
+}
+
+html.light {
+  color-scheme: light;
+  --bg: #f8fafc;
+  --bg-elevated: #ffffff;
+  --bg-muted: #f1f5f9;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --text-faint: #94a3b8;
+  --accent: #0284c7;
+  --accent-soft: rgba(2, 132, 199, 0.1);
+  --ok: #059669;
+  --warn: #d97706;
+  --danger: #e11d48;
+  --chip: #e2e8f0;
+}
+
+html {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Semantic helpers used by the workbench */
+.ui-surface {
+  background: var(--bg);
+  color: var(--text);
+}
+.ui-elevated {
+  background: var(--bg-elevated);
+}
+.ui-border {
+  border-color: var(--border);
+}
+.ui-muted {
+  color: var(--text-muted);
+}
+.ui-faint {
+  color: var(--text-faint);
+}
+.ui-input {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+}
+.ui-btn {
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elevated);
+  color: var(--text);
+}
+.ui-btn:hover {
+  background: var(--bg-muted);
+}
+.ui-btn-primary {
+  background: var(--accent);
+  color: #0b1220;
+  border: none;
+}
+html.light .ui-btn-primary {
+  color: #fff;
+}

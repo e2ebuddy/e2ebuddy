@@ -11,5 +11,11 @@ export default defineConfig({
   sourcemap: true,
   minify: false,
   treeshake: true,
-  external: ['@anthropic-ai/sdk', 'playwright'],
+  external: [
+    '@anthropic-ai/sdk',
+    '@modelcontextprotocol/sdk',
+    '@modelcontextprotocol/sdk/*',
+    'playwright',
+    'zod',
+  ],
 });
